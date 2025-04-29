@@ -1,38 +1,37 @@
+// server.js
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Routes
+// Configs & DB
+import connectDB from "./db/db.js";
+
+// Routes & Middleware
 import authRoutes from "./routes/auth.js";
 import feedbackRoutes from "./routes/feedback.js";
-
-// Middleware
 import errorHandler from "./middleware/errorHandler.js";
 
-// Config
+// Load env vars
 dotenv.config();
+connectDB();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-// CORS configuration
+// CORS setup
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      // Allow all origins for development
-      return callback(null, true);
-    },
+    origin: CLIENT_URL,
     credentials: true,
   })
 );
+
+// Middleware
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -40,23 +39,15 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/feedback", feedbackRoutes);
 
-// Error handling middleware
+// Error handler
 app.use(errorHandler);
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection error:", error);
-  });
-
-// Basic route for testing
+// Test route
 app.get("/", (req, res) => {
   res.send("Client Feedback Portal API is running");
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
