@@ -201,14 +201,13 @@ export const addReplyToFeedback = async (req, res, next) => {
 };
 
 export const getAIReplySuggestions = async (req, res, next) => {
-  let feedback; // declare outer so both try and catch can see it
+  let feedback;
 
   try {
+    // Fetch the feedback by ID
     feedback = await Feedback.findById(req.params.id).lean();
     if (!feedback) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Feedback not found" });
+      return res.status(404).json({ success: false, message: "Feedback not found" });
     }
 
     const snippet =
@@ -216,16 +215,27 @@ export const getAIReplySuggestions = async (req, res, next) => {
         ? feedback.text.slice(0, 100) + "…"
         : feedback.text;
 
+    // ✅ Construct AI prompt with clear structure
     const prompt = `
-User rated us ${feedback.rating}/5 and said: "${snippet}"
-Write **two** professional replies:
-1. “Thank you for giving us a ${feedback.rating}-star rating.”
-2. Address their comment in one sentence.
-3. Under 20 words each.
-`;
+A customer rated our service ${feedback.rating}/5 and left this feedback:
+"${snippet}"
 
-    // Call HF inference
-    const url = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+Please write two short, professional responses:
+1. A polite thank-you message that includes the star rating (${feedback.rating} stars).
+2. A brief sentence that addresses the user's comment or feedback directly.
+
+Each response should be:
+- Under 20 words
+- Professional in tone
+- Tailored to the given rating and feedback
+
+Format:
+1. [Thank-you sentence]
+2. [Follow-up or resolution sentence]
+    `;
+
+    // 🧠 Call Hugging Face API
+    const url = `https://api-inference.huggingface.co/models/${process.env.HF_MODEL}`;
     const { data } = await axios.post(
       url,
       {
@@ -242,6 +252,7 @@ Write **two** professional replies:
       data.generated_text ||
       (Array.isArray(data) && data[0]?.generated_text) ||
       "";
+
     const suggestions = raw
       .split(/\n(?=\d\.)/)
       .map((line) => line.replace(/^\d\.\s*/, "").trim())
@@ -252,10 +263,9 @@ Write **two** professional replies:
   } catch (err) {
     console.error("AI Suggestion Error:", err.message);
 
-    // Ensure we still have feedback.rating available
     const rating = feedback?.rating ?? "N/A";
 
-    // Fallback replies
+    // Fallback messages
     const fallback = [
       `Thank you for giving us a ${rating}-star rating. We appreciate your feedback.`,
       `Thank you for giving us a ${rating}-star rating. We’ll use this to improve.`,
